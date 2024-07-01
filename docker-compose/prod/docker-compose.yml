@@ -1,0 +1,144 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: rabbitmq-diagnostics check_port_connectivity
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    extends:
+      file: common-config.yml
+      service: network-deploy-service
+
+  configserver:
+    image: gauravkr133/config-server:latest
+    container_name: configserver-microservice
+    ports:
+      - "8071:8071"
+    healthcheck:
+      test: "curl --fail --silent localhost:8071/actuator/health/readiness | grep UP || exit 1"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    extends:
+      file: common-config.yml
+      service: microservice-base-config
+
+  eureka-server:
+    image: gauravkr133/eureka-server:latest
+    container_name: eureka-server-microservice
+    ports:
+      - "8070:8070"
+    environment:
+      SPRING_APPLICATION_NAME: "eureka-server"
+    extends:
+      file: common-config.yml
+      service: microservice-eureka-server-config
+    healthcheck:
+      test: "curl --fail --silent localhost:8070/actuator/health/readiness | grep UP || exit 1"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    depends_on:
+      configserver:
+        condition: service_healthy
+
+  accounts-service:
+    image: gauravkr133/accounts-service:latest
+    container_name: accounts-microservice
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_APPLICATION_NAME: "accounts-service"
+    healthcheck:
+      test: "curl --fail --silent localhost:8080/actuator/health/readiness | grep UP || exit 1"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    depends_on:
+      configserver:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    extends:
+      file: common-config.yml
+      service: microservice-eureka-client-config
+
+  loans-service:
+    image: gauravkr133/loan-service:latest
+    container_name: loan-microservice
+    ports:
+      - "8090:8090"
+    environment:
+      SPRING_APPLICATION_NAME: "loan-service"
+    healthcheck:
+      test: "curl --fail --silent localhost:8090/actuator/health/readiness | grep UP || exit 1"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    depends_on:
+      configserver:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    extends:
+      file: common-config.yml
+      service: microservice-eureka-client-config
+
+  cards-service:
+    image: gauravkr133/card-service:latest
+    container_name: card-microservice
+    ports:
+      - "9000:9000"
+    environment:
+      SPRING_APPLICATION_NAME: "card-service"
+    healthcheck:
+      test: "curl --fail --silent localhost:9000/actuator/health/readiness | grep UP || exit 1"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    depends_on:
+      configserver:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    extends:
+      file: common-config.yml
+      service: microservice-eureka-client-config
+
+  gateway-server:
+    image: gauravkr133/gateway-server:latest
+    container_name: gateway-server
+    ports:
+      - "8072:8072"
+    environment:
+      SPRING_APPLICATION_NAME: "gateway-server"
+    depends_on:
+      accounts-service:
+        condition: service_healthy
+      loans-service:
+        condition: service_healthy
+      cards-service:
+        condition: service_healthy
+    extends:
+      file: common-config.yml
+      service: microservice-eureka-client-config
+
+networks:
+  bank-network:
+    driver: "bridge"
+
+
