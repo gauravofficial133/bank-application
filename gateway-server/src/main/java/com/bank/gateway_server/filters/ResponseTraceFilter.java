@@ -20,8 +20,10 @@ public class ResponseTraceFilter {
             return chain.filter(exchange).then(Mono.fromRunnable(() -> {
                 HttpHeaders requestHeaders = exchange.getRequest().getHeaders();
                 String correlationId = filterUtility.getCorrelationId(requestHeaders);
-                log.info("Updated the correlation id to the outbound headers: {}",correlationId);
-                exchange.getResponse().getHeaders().add(FilterUtility.CORRELATION_ID, correlationId);
+                if(!exchange.getResponse().getHeaders().containsKey(FilterUtility.CORRELATION_ID)) {
+                    log.info("Updated the correlation id to the outbound headers: {}",correlationId);
+                    exchange.getResponse().getHeaders().add(FilterUtility.CORRELATION_ID, correlationId);
+                }
             }));
         });
     }

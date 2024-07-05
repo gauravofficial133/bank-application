@@ -6,6 +6,8 @@ import com.bank.accounts_service.dtos.CustomerDto;
 import com.bank.accounts_service.dtos.ErrorResponseDto;
 import com.bank.accounts_service.dtos.ResponseDto;
 import com.bank.accounts_service.services.IAccountsService;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
+import io.github.resilience4j.retry.annotation.Retry;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -14,6 +16,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -28,6 +31,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping(path = "/accounts", produces = {MediaType.APPLICATION_JSON_VALUE})
 @Validated
+@Slf4j
 public class AccountsController {
 
     @Autowired
@@ -173,11 +177,19 @@ public class AccountsController {
             )
     }
     )
+    @Retry(name = "getContactInfo", fallbackMethod = "getContactInfoFallback")
+    @RateLimiter(name = "getContactInfo", fallbackMethod = "getContactInfoFallback")
     @GetMapping("/contact-info")
     public ResponseEntity<AccountsContactInfoDto> getContactInfo() {
         return ResponseEntity
                 .status(HttpStatus.OK)
                 .body(accountsContactInfoDto);
+    }
+
+    public ResponseEntity<AccountsContactInfoDto> getContactInfoFallback(Throwable throwable){
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(new AccountsContactInfoDto());
     }
 
 }
